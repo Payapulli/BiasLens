@@ -1,0 +1,32 @@
+[
+  {
+    "text": "The administration's economic policies have created unprecedented prosperity for all Americans, with record job growth and rising wages across every sector.",
+    "analysis": {
+      "evidence_spans": ["unprecedented prosperity", "record job growth", "rising wages across every sector"],
+      "indicators": ["overly positive language", "absolute claims", "administration praise"],
+      "tentative_label": "leans_right",
+      "confidence": 0.85,
+      "rationale": "Uses superlative language and unqualified praise for administration policies, typical of right-leaning bias"
+    }
+  },
+  {
+    "text": "Corporate greed continues to exploit working families while the wealthy hoard resources that should be shared with the community.",
+    "analysis": {
+      "evidence_spans": ["corporate greed", "exploit working families", "wealthy hoard resources"],
+      "indicators": ["class warfare language", "moral judgment", "us vs them framing"],
+      "tentative_label": "leans_left",
+      "confidence": 0.90,
+      "rationale": "Employs class-based rhetoric and moral condemnation typical of left-leaning economic commentary"
+    }
+  },
+  {
+    "text": "The bipartisan infrastructure bill represents a compromise that addresses critical national needs while respecting fiscal constraints.",
+    "analysis": {
+      "evidence_spans": ["bipartisan", "compromise", "critical national needs", "fiscal constraints"],
+      "indicators": ["balanced language", "acknowledges multiple perspectives", "neutral tone"],
+      "tentative_label": "center",
+      "confidence": 0.75,
+      "rationale": "Uses balanced language that acknowledges both cooperation and fiscal responsibility without taking sides"
+    }
+  }
+]
