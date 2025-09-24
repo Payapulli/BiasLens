@@ -43,6 +43,119 @@ retriever: Optional[DocumentRetriever] = None
 distilgpt2_model = None
 distilgpt2_tokenizer = None
 
+# Helper functions for DistilGPT2 analysis
+def parse_distilgpt2_response(response: str) -> Dict[str, Any]:
+    """Parse structured response from DistilGPT2."""
+    response_lower = response.lower()
+    
+    # Extract bias
+    bias = "center"  # Default
+    if "bias: leans_right" in response_lower or "leans_right" in response_lower:
+        bias = "leans_right"
+    elif "bias: leans_left" in response_lower or "leans_left" in response_lower:
+        bias = "leans_left"
+    elif "bias: center" in response_lower:
+        bias = "center"
+    
+    # Extract confidence
+    confidence = 0.7  # Default
+    import re
+    confidence_match = re.search(r'confidence[:\s]*(\d+\.?\d*)', response_lower)
+    if confidence_match:
+        try:
+            conf_value = float(confidence_match.group(1))
+            if conf_value > 1:
+                conf_value = conf_value / 100
+            if conf_value > 0.1:  # Only use if reasonable
+                confidence = conf_value
+        except:
+            pass
+    
+    # Extract evidence
+    evidence = extract_evidence_spans(response)
+    
+    # Extract rationale
+    rationale = ""
+    rationale_match = re.search(r'rationale[:\s]*(.+)', response_lower)
+    if rationale_match:
+        rationale = rationale_match.group(1).strip()
+    
+    return {
+        "bias": bias,
+        "confidence": confidence,
+        "evidence": evidence,
+        "rationale": rationale
+    }
+
+def extract_evidence_spans(response: str) -> list:
+    """Extract evidence spans from DistilGPT2 response."""
+    import re
+    evidence_match = re.search(r'evidence[:\s]*(.+)', response.lower())
+    if evidence_match:
+        evidence_text = evidence_match.group(1).strip()
+        evidence_words = evidence_text.split()[:5]  # Take first 5 words
+        return evidence_words
+    return []
+
+def build_analysis_prompt(query: str, context: str, few_shot_examples: list) -> str:
+    """Build the analysis prompt for DistilGPT2."""
+    prompt = f"""Analyze political bias in text using context.
+
+{context}
+
+Analyze this text: "{query}"
+
+Based on the context and the text, determine the political bias. Consider:
+- Language patterns and word choice
+- Similarity to left-leaning or right-leaning sources
+- Political indicators in the text
+
+Provide your analysis in this format:
+BIAS: leans_left OR leans_right OR center
+CONFIDENCE: 0.0 to 1.0
+EVIDENCE: specific phrases that indicate bias
+RATIONALE: brief explanation
+
+Analysis:"""
+    
+    return prompt
+
+def analyze_with_distilgpt2(query: str, context: str, few_shot_examples: list, 
+                           tokenizer, model) -> Dict[str, Any]:
+    """Analyze text using DistilGPT2 with error handling."""
+    try:
+        # Build prompt
+        prompt = build_analysis_prompt(query, context, few_shot_examples)
+        
+        # Tokenize
+        inputs = tokenizer.encode(prompt, return_tensors="pt")
+        
+        # Generate
+        with torch.no_grad():
+            outputs = model.generate(
+                inputs,
+                max_length=inputs.shape[1] + 100,
+                num_return_sequences=1,
+                temperature=0.7,
+                do_sample=True,
+                pad_token_id=tokenizer.eos_token_id
+            )
+        
+        # Decode response
+        response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        
+        # Parse structured response
+        return parse_distilgpt2_response(response)
+        
+    except Exception as e:
+        logger.error(f"DistilGPT2 analysis error: {e}")
+        return {
+            "bias": "center",
+            "confidence": 0.7,
+            "evidence": [],
+            "rationale": f"Error in analysis: {str(e)}"
+        }
+
 # Request/Response models
 class AnalysisRequest(BaseModel):
     q: str
