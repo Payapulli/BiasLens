@@ -124,7 +124,13 @@ Based on the context and the text, determine the political bias. Consider:
 - Similarity to left-leaning or right-leaning sources
 - Political indicators in the text
 
-The text is:"""
+Provide your analysis in this format:
+BIAS: leans_left OR leans_right OR center
+CONFIDENCE: 0.0 to 1.0
+EVIDENCE: specific phrases that indicate bias
+RATIONALE: brief explanation
+
+Analysis:"""
     
     try:
         # Tokenize and generate
@@ -144,36 +150,49 @@ The text is:"""
         # Decode response
         response = distilgpt2_tokenizer.decode(outputs[0], skip_special_tokens=True)
         
-        # Simple but effective bias analysis
-        query_lower = query.lower()
+        # Parse DistilGPT2 structured response
         response_lower = response.lower()
         
-        # Left-leaning indicators
-        left_indicators = ['union', 'unionization', 'workers', 'labor', 'tax the rich', 'inequality', 
-                          'climate', 'environment', 'progressive', 'social', 'welfare', 'healthcare',
-                          'education', 'public', 'government', 'regulation', 'fair', 'equality']
+        # Extract bias from structured response
+        tentative_label = "center"  # Default
+        confidence = 0.7  # Default confidence
         
-        # Right-leaning indicators  
-        right_indicators = ['fake', 'hoax', 'scam', 'booming', 'record', 'prosperity', 'innovation',
-                           'freedom', 'liberty', 'free market', 'deregulation', 'private', 'business',
-                           'entrepreneur', 'capitalism', 'individual', 'self-reliance', 'traditional']
-        
-        # Count indicators in the query
-        left_score = sum(1 for word in left_indicators if word in query_lower)
-        right_score = sum(1 for word in right_indicators if word in query_lower)
-        
-        logger.info(f"Query: '{query}', left_score: {left_score}, right_score: {right_score}")
-        
-        # Determine bias based on indicators
-        if left_score > right_score:
-            tentative_label = "leans_left"
-            confidence = min(0.9, 0.6 + (left_score * 0.1))
-        elif right_score > left_score:
+        # Look for structured bias indicators in DistilGPT2 response
+        if "bias: leans_right" in response_lower or "leans_right" in response_lower:
             tentative_label = "leans_right"
-            confidence = min(0.9, 0.6 + (right_score * 0.1))
-        else:
+        elif "bias: leans_left" in response_lower or "leans_left" in response_lower:
+            tentative_label = "leans_left"
+        elif "bias: center" in response_lower:
             tentative_label = "center"
-            confidence = 0.5
+        
+        # Extract confidence from response
+        import re
+        confidence_match = re.search(r'confidence[:\s]*(\d+\.?\d*)', response_lower)
+        if confidence_match:
+            try:
+                conf_value = float(confidence_match.group(1))
+                if conf_value > 1:
+                    conf_value = conf_value / 100
+                if conf_value > 0.1:  # Only use if reasonable
+                    confidence = conf_value
+            except:
+                pass
+        
+        # If no structured response, fall back to context analysis
+        if tentative_label == "center":
+            context_bias_scores = {'leans_left': 0, 'leans_right': 0, 'center': 0}
+            for doc in retrieved_docs:
+                if doc['bias_label'] in context_bias_scores:
+                    context_bias_scores[doc['bias_label']] += doc['score']
+            
+            if context_bias_scores['leans_left'] > context_bias_scores['leans_right'] and context_bias_scores['leans_left'] > 0.3:
+                tentative_label = "leans_left"
+                confidence = 0.6
+            elif context_bias_scores['leans_right'] > context_bias_scores['leans_left'] and context_bias_scores['leans_right'] > 0.3:
+                tentative_label = "leans_right"
+                confidence = 0.6
+        
+        logger.info(f"Query: '{query}', DistilGPT2 analysis: {tentative_label} (confidence: {confidence})")
         
         # Use context from retrieved documents to influence the decision
         context_bias_scores = {'leans_left': 0, 'leans_right': 0, 'center': 0}
@@ -191,11 +210,17 @@ The text is:"""
                 tentative_label = "leans_right"
             confidence = min(0.9, confidence + 0.1)
         
-        # Extract evidence spans
+        # Extract evidence spans from DistilGPT2 response
         evidence_spans = []
-        for word in left_indicators + right_indicators:
-            if word in query_lower:
-                evidence_spans.append(word)
+        evidence_match = re.search(r'evidence[:\s]*(.+)', response_lower)
+        if evidence_match:
+            evidence_text = evidence_match.group(1).strip()
+            evidence_words = evidence_text.split()[:5]  # Take first 5 words
+            evidence_spans.extend(evidence_words)
+        else:
+            # Fallback: extract key phrases from query
+            query_words = query.split()
+            evidence_spans = query_words[:3]  # Take first 3 words as evidence
         
         # Extract indicators
         indicators = []
@@ -306,7 +331,7 @@ if __name__ == "__main__":
     print("📚 API documentation at: http://localhost:8000/docs")
     
     uvicorn.run(
-        "server_working:app",
+        "server:app",
         host="0.0.0.0",
         port=8000,
         reload=False,
