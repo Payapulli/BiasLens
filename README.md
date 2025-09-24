@@ -6,34 +6,53 @@ A local, CPU-friendly tool for analyzing political and news bias in text using R
 
 BiasLens combines:
 - **FAISS vector search** for retrieving relevant article snippets
-- **Heuristic bias scoring** using keyword analysis and sentiment
+- **DistilGPT2 LLM inference** for intelligent bias analysis
 - **In-context learning** with few-shot examples for structured bias analysis
 - **Small transformer models** optimized for CPU inference
 
 ## Quick Start
 
-### 1. Install Dependencies
+### Local Development
 
+1. **Install Dependencies:**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+
+2. **Prepare Data:**
+   ```bash
+   # Index the sample articles
+   python scripts/index_docs.py
+   ```
+
+3. **Run the Development Server:**
+   ```bash
+   python app/server.py
+   ```
+
+4. **Access the Application:**
+   - Frontend: http://localhost:8000
+   - API Documentation: http://localhost:8000/docs
+   - Health Check: http://localhost:8000/health
+
+### Production Deployment
+
+For production deployment, see [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.
+
+**Quick deployment:**
 ```bash
-pip install -r requirements.txt
+chmod +x deploy.sh
+./deploy.sh
 ```
 
-### 2. Prepare Data
-
+**Docker deployment:**
 ```bash
-# Index the sample articles
-python scripts/index_docs.py
+docker-compose up -d
 ```
 
-### 3. Run the Server
-
-```bash
-python app/server.py
-```
-
-The API will be available at `http://localhost:8000`
-
-### 4. Test Analysis
+### Test Analysis
 
 ```bash
 # Quick test
