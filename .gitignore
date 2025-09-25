@@ -42,8 +42,8 @@ models/
 # Logs
 *.log
 
-# Test files
-test_*.py
+# Test files (but keep unit tests)
+# test_*.py
 
 # OS
 .DS_Store
