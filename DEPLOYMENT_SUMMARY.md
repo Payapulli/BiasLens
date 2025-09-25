@@ -7,9 +7,8 @@ Your BiasLens application is now ready for production deployment with multiple d
 ## 📁 Files Created for Deployment
 
 ### Core Application
-- `app/server_production.py` - Production-ready server with logging, error handling, and security
-- `app/simple_rag_icl.py` - Working RAG + ICL implementation
-- `app/robust_distilgpt2_rag_icl.py` - DistilGPT2 integration (standalone)
+- `app/server.py` - Main FastAPI server with DistilGPT2 integration
+- `app/retriever.py` - Document retrieval using FAISS and sentence transformers
 
 ### Deployment Scripts
 - `deploy.sh` - Automated deployment script for Linux servers
@@ -139,7 +138,7 @@ tar -czf biaslens-backup-$(date +%Y%m%d).tar.gz /opt/biaslens
 ```
 
 ### Scaling
-- Add more workers: Edit `server_production.py`
+- Add more workers: Edit `app/server.py`
 - Load balancing: Configure multiple instances
 - Database: Add persistent storage for better performance
 

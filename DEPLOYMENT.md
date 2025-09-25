@@ -76,7 +76,7 @@ This guide covers deploying the BiasLens political bias analysis system to a pro
    User=$USER
    WorkingDirectory=/opt/biaslens
    Environment=PATH=/opt/biaslens/venv/bin
-   ExecStart=/opt/biaslens/venv/bin/python app/server_production.py
+   ExecStart=/opt/biaslens/venv/bin/python app/server.py
    Restart=always
    RestartSec=10
 
@@ -180,12 +180,12 @@ server {
 
 ### Application Configuration
 
-Edit `app/server_production.py`:
+Edit `app/server.py`:
 
 ```python
 # Adjust worker processes
 uvicorn.run(
-    "server_production:app",
+    "server:app",
     host="0.0.0.0",
     port=8000,
     workers=4,  # Adjust based on CPU cores

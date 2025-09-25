@@ -56,7 +56,7 @@ docker-compose up -d
 
 ```bash
 # Quick test
-python scripts/eval_sample.py
+python -m uvicorn app.server:app --reload
 
 # Or use the API directly
 curl -X POST "http://localhost:8000/analyze" \
@@ -111,13 +111,11 @@ biaslens/
 ├── data/
 │   └── articles.jsonl        # Sample article dataset
 ├── scripts/
-│   ├── index_docs.py         # Build FAISS index
-│   └── eval_sample.py        # Quick test script
+│   └── index_docs.py         # Build FAISS index from articles
 ├── app/
 │   ├── retriever.py          # FAISS retrieval logic
-│   ├── heuristics.py         # Bias scoring heuristics
-│   ├── icl_explainer.py      # ICL prompt builder
-│   └── server.py             # FastAPI application
+│   ├── server.py             # FastAPI application with DistilGPT2
+│   └── index/                # FAISS index files
 └── examples/
     └── shots.json            # Few-shot examples for ICL
 ```
@@ -133,7 +131,7 @@ biaslens/
 ## Customization
 
 1. **Add your own articles**: Replace `data/articles.jsonl` with your dataset
-2. **Modify heuristics**: Edit `app/heuristics.py` to adjust bias scoring rules
+2. **Modify analysis**: Edit `app/server.py` to adjust DistilGPT2 prompting
 3. **Update examples**: Modify `examples/shots.json` for different ICL patterns
 4. **Change models**: Swap models in the code (requires updating requirements.txt)
 
