@@ -1,0 +1,5 @@
+# Testing dependencies for BiasLens
+pytest>=7.0.0
+httpx>=0.24.0
+certifi>=2022.12.7
+fastapi>=0.68.0
