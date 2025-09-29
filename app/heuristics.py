@@ -12,25 +12,44 @@ class BiasHeuristics:
     
     def __init__(self):
         """Initialize bias detection heuristics."""
-        # Left-leaning keywords and phrases
+        # Left-leaning keywords and phrases (context-aware)
         self.left_keywords = [
             'corporate greed', 'wealthy elite', 'working families', 'social justice',
             'income inequality', 'climate crisis', 'systemic racism', 'progressive',
             'universal healthcare', 'free college', 'minimum wage', 'union rights',
             'environmental protection', 'renewable energy', 'affordable housing',
             'social safety net', 'wealth tax', 'corporate accountability',
-            'workers rights', 'climate action', 'green new deal', 'medicare for all'
+            'workers rights', 'climate action', 'green new deal', 'medicare for all',
+            'tax cuts', 'wealthy', 'middle class', 'inequality', 'exploit', 'greed'
         ]
         
-        # Right-leaning keywords and phrases
+        # Right-leaning keywords and phrases (context-aware)
         self.right_keywords = [
             'free market', 'individual liberty', 'small government', 'fiscal responsibility',
             'traditional values', 'law and order', 'personal responsibility', 'entrepreneurship',
             'deregulation', 'tax cuts', 'economic freedom', 'constitutional rights',
             'national security', 'border security', 'family values', 'religious freedom',
             'prosperity', 'job creators', 'innovation', 'competition', 'self-reliance',
-            'limited government', 'free enterprise', 'patriotism', 'conservative'
+            'limited government', 'free enterprise', 'patriotism', 'conservative',
+            'booming', 'record', 'growth', 'prosperity', 'innovation', 'entrepreneurs',
+            'small businesses', 'recovery', 'deregulation', 'competition', 'liberty',
+            'freedom', 'enterprise', 'market solutions', 'economic growth', 'job creation'
         ]
+        
+        # Climate denial patterns (right-leaning)
+        self.climate_denial_patterns = [
+            r'\bclimate change.*fake\b', r'\bclimate change.*hoax\b', r'\bclimate change.*scam\b',
+            r'\bglobal warming.*fake\b', r'\bglobal warming.*hoax\b', r'\bglobal warming.*scam\b',
+            r'\bclimate.*denier\b', r'\bclimate.*skeptic\b', r'\bclimate.*myth\b'
+        ]
+        
+        # Climate action patterns (left-leaning)
+        self.climate_action_patterns = [
+            r'\bclimate change.*crisis\b', r'\bclimate change.*emergency\b', r'\bclimate change.*action\b',
+            r'\bglobal warming.*threat\b', r'\bglobal warming.*danger\b', r'\bgreen new deal\b',
+            r'\brenewable energy\b', r'\bcarbon emissions\b', r'\benvironmental protection\b'
+        ]
+        
         
         # Neutral/center indicators
         self.neutral_keywords = [
@@ -47,6 +66,27 @@ class BiasHeuristics:
             r'\b(disaster|crisis|emergency|breakthrough|miracle)\b'  # Dramatic language
         ]
     
+    def analyze_context_patterns(self, text: str) -> Dict[str, Any]:
+        """Analyze text for context-aware bias patterns."""
+        text_lower = text.lower()
+        
+        # Check for climate denial patterns (right-leaning)
+        climate_denial_count = 0
+        for pattern in self.climate_denial_patterns:
+            climate_denial_count += len(re.findall(pattern, text_lower))
+        
+        # Check for climate action patterns (left-leaning)
+        climate_action_count = 0
+        for pattern in self.climate_action_patterns:
+            climate_action_count += len(re.findall(pattern, text_lower))
+        
+        return {
+            'climate_denial_count': climate_denial_count,
+            'climate_action_count': climate_action_count,
+            'climate_denial_score': climate_denial_count * 0.8,  # Strong right signal
+            'climate_action_score': climate_action_count * 0.8   # Strong left signal
+        }
+
     def analyze_keywords(self, text: str) -> Dict[str, Any]:
         """Analyze text for bias-related keywords."""
         text_lower = text.lower()
@@ -170,10 +210,10 @@ class BiasHeuristics:
         raw_bias_score = keyword_bias + sentiment_factor + emotional_factor
         bias_score = max(-1, min(1, raw_bias_score))  # Clamp to [-1, 1]
         
-        # Determine tentative label
-        if abs(bias_score) < 0.2:
+        # Determine tentative label (more sensitive thresholds)
+        if abs(bias_score) < 0.1:
             tentative_label = "center"
-        elif bias_score > 0.2:
+        elif bias_score > 0.1:
             tentative_label = "leans_right"
         else:
             tentative_label = "leans_left"

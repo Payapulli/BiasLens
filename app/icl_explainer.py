@@ -79,15 +79,15 @@ class ICLExplainer:
         analysis = shot['analysis']
         
         formatted = f"""Text: "{text}"
-Analysis: {{
-  "evidence_spans": {json.dumps(analysis['evidence_spans'])},
-  "indicators": {json.dumps(analysis['indicators'])},
-  "tentative_label": "{analysis['tentative_label']}",
-  "confidence": {analysis['confidence']},
-  "rationale": "{analysis['rationale']}"
-}}
+        Analysis: {{
+        "evidence_spans": {json.dumps(analysis['evidence_spans'])},
+        "indicators": {json.dumps(analysis['indicators'])},
+        "tentative_label": "{analysis['tentative_label']}",
+        "confidence": {analysis['confidence']},
+        "rationale": "{analysis['rationale']}"
+        }}
 
-"""
+        """
         return formatted
     
     def _build_prompt(self, query: str, num_shots: int = 2) -> str:
@@ -104,20 +104,20 @@ Analysis: {{
         # Start with task description
         prompt = """You are an expert political bias analyst. Analyze the given text for political bias and provide a structured JSON response.
 
-Task: Identify evidence of political bias in the text and classify it as "leans_left", "center", or "leans_right".
+        Task: Identify evidence of political bias in the text and classify it as "leans_left", "center", or "leans_right".
 
-Response format:
-{
-  "evidence_spans": ["specific phrases that indicate bias"],
-  "indicators": ["bias indicators found"],
-  "tentative_label": "leans_left|center|leans_right",
-  "confidence": 0.85,
-  "rationale": "Explanation of the analysis"
-}
+        Response format:
+        {
+        "evidence_spans": ["specific phrases that indicate bias"],
+        "indicators": ["bias indicators found"],
+        "tentative_label": "leans_left|center|leans_right",
+        "confidence": 0.85,
+        "rationale": "Explanation of the analysis"
+        }
 
-Examples:
+        Examples:
 
-"""
+        """
         
         # Add few-shot examples
         shots_to_use = self.shots[:num_shots] if self.shots else []
@@ -126,7 +126,7 @@ Examples:
         
         # Add the query
         prompt += f"""Text: "{query}"
-Analysis:"""
+        Analysis:"""
         
         return prompt
     

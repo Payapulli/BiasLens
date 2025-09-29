@@ -1,13 +1,18 @@
 """
-FastAPI server for BiasLens bias analysis API.
+Production-ready BiasLens server with RAG + ICL.
 """
 
 import os
 import sys
+import logging
 from pathlib import Path
 from typing import Dict, Any, Optional
+from collections import Counter
 
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 # Add current directory to path for imports
@@ -17,6 +22,12 @@ from retriever import DocumentRetriever
 from heuristics import BiasHeuristics
 from icl_explainer import ICLExplainer
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Pydantic models for request/response
 class AnalysisRequest(BaseModel):
@@ -30,13 +41,29 @@ class AnalysisResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     message: str
+    version: str
 
 # Initialize FastAPI app
 app = FastAPI(
     title="BiasLens API",
-    description="Political bias analysis using RAG and ICL",
-    version="1.0.0"
+    description="Political bias analysis using RAG and In-Context Learning",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
 )
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Configure this properly for production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount static files
+static_dir = Path(__file__).parent.parent / "static"
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 # Global variables for components
 retriever: Optional[DocumentRetriever] = None
@@ -50,33 +77,40 @@ async def startup_event():
     global retriever, heuristics, icl_explainer
     
     try:
-        print("Initializing BiasLens components...")
+        logger.info("Initializing BiasLens components...")
         
         # Initialize retriever
-        print("Loading document retriever...")
+        logger.info("Loading document retriever...")
         retriever = DocumentRetriever()
         
         # Initialize heuristics
-        print("Loading bias heuristics...")
+        logger.info("Loading bias heuristics...")
         heuristics = BiasHeuristics()
         
         # Initialize ICL explainer
-        print("Loading ICL explainer...")
+        logger.info("Loading ICL explainer...")
         icl_explainer = ICLExplainer()
         
-        print("All components loaded successfully!")
+        logger.info("All components loaded successfully!")
         
     except Exception as e:
-        print(f"Error during startup: {e}")
-        print("Some components may not be available")
+        logger.error(f"Error during startup: {e}")
+        logger.error("Some components may not be available")
 
 
-@app.get("/", response_model=HealthResponse)
+@app.get("/")
 async def root():
-    """Root endpoint with basic info."""
+    """Serve the frontend."""
+    static_dir = Path(__file__).parent.parent / "static"
+    return FileResponse(static_dir / "index.html")
+
+@app.get("/api", response_model=HealthResponse)
+async def api_info():
+    """API info endpoint."""
     return HealthResponse(
         status="ok",
-        message="BiasLens API - Political bias analysis using RAG and ICL"
+        message="BiasLens API - Political bias analysis using RAG and ICL",
+        version="1.0.0"
     )
 
 
@@ -86,7 +120,7 @@ async def health_check():
     components_status = {
         "retriever": retriever is not None,
         "heuristics": heuristics is not None,
-        "icl_explainer": icl_explainer is not None
+        "icl_explainer": icl_explainer is not None,
     }
     
     all_ready = all(components_status.values())
@@ -94,26 +128,28 @@ async def health_check():
     if all_ready:
         return HealthResponse(
             status="healthy",
-            message="All components are ready"
+            message="All components are ready",
+            version="1.0.0"
         )
     else:
         missing = [k for k, v in components_status.items() if not v]
         return HealthResponse(
             status="degraded",
-            message=f"Missing components: {', '.join(missing)}"
+            message=f"Missing components: {', '.join(missing)}",
+            version="1.0.0"
         )
 
 
 @app.post("/analyze", response_model=AnalysisResponse)
 async def analyze_bias(request: AnalysisRequest):
     """
-    Analyze text for political bias.
+    Analyze text for political bias using ICL.
     
     Args:
         request: Analysis request with query text
         
     Returns:
-        Analysis results with LLM output, retrieved documents, and heuristic scores
+        Analysis results with ICL analysis
     """
     if not all([retriever, heuristics, icl_explainer]):
         raise HTTPException(
@@ -126,127 +162,87 @@ async def analyze_bias(request: AnalysisRequest):
         if not query:
             raise HTTPException(status_code=400, detail="Query cannot be empty")
         
-        # Retrieve relevant documents
-        print(f"Retrieving documents for query: {query[:50]}...")
-        retrieved_docs = retriever.retrieve(query, top_k=5)
+        if len(query) > 1000:
+            raise HTTPException(status_code=400, detail="Query too long. Maximum 1000 characters.")
         
-        # Get heuristic analysis
-        print("Running heuristic analysis...")
+        logger.info(f"Analyzing query: {query[:50]}...")
+        
+        # ICL Analysis
+        icl_result = icl_explainer.analyze(query)
+        
+        # Heuristic validation
         heuristic_result = heuristics.calculate_bias_score(query)
         
-        # Get ICL analysis
-        print("Running ICL analysis...")
-        icl_result = icl_explainer.analyze(query, num_shots=2)
+        # Retrieve relevant documents for context
+        retrieved_docs = retriever.retrieve(query, top_k=5)
         
-        # Format retrieved documents
-        formatted_retrieved = []
-        for doc in retrieved_docs:
-            formatted_retrieved.append({
-                "text": doc['text'][:200] + "..." if len(doc['text']) > 200 else doc['text'],
-                "title": doc['title'],
-                "source": doc['source'],
-                "bias_label": doc['bias_label'],
-                "score": doc['score']
-            })
-        
-        # Format heuristic score
-        formatted_score = {
-            "heuristic_score": heuristic_result['bias_score'],
-            "heuristic_label": heuristic_result['tentative_label'],
-            "heuristic_confidence": heuristic_result['confidence'],
-            "sentiment": "positive" if heuristic_result['sentiment_analysis']['polarity'] > 0 else "negative",
-            "keywords": {
-                "left": heuristic_result['keyword_analysis']['found_left'][:3],
-                "right": heuristic_result['keyword_analysis']['found_right'][:3],
-                "neutral": heuristic_result['keyword_analysis']['found_neutral'][:3]
-            }
-        }
+        logger.info(f"Analysis complete. Label: {icl_result['tentative_label']}")
         
         return AnalysisResponse(
             answer=icl_result,
-            retrieved=formatted_retrieved,
-            score=formatted_score
+            retrieved=retrieved_docs,
+            score=heuristic_result
         )
         
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error during analysis: {e}")
+        logger.error(f"Error during analysis: {e}")
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 
 @app.get("/retrieve")
 async def retrieve_documents(q: str, top_k: int = 5):
-    """
-    Retrieve relevant documents for a query.
-    
-    Args:
-        q: Query text
-        top_k: Number of documents to retrieve
-        
-    Returns:
-        List of retrieved documents
-    """
+    """Retrieve relevant documents for a query."""
     if not retriever:
         raise HTTPException(status_code=503, detail="Retriever not available")
     
     try:
-        docs = retriever.retrieve(q, top_k)
+        if len(q) > 500:
+            raise HTTPException(status_code=400, detail="Query too long. Maximum 500 characters.")
+        
+        docs = retriever.retrieve(q, min(top_k, 10))  # Limit to 10 max
         return {"query": q, "documents": docs}
     except Exception as e:
+        logger.error(f"Retrieval failed: {e}")
         raise HTTPException(status_code=500, detail=f"Retrieval failed: {str(e)}")
 
 
 @app.get("/heuristics")
 async def analyze_heuristics(q: str):
-    """
-    Get heuristic bias analysis for a query.
-    
-    Args:
-        q: Query text
-        
-    Returns:
-        Heuristic analysis results
-    """
+    """Get heuristic bias analysis for a query."""
     if not heuristics:
         raise HTTPException(status_code=503, detail="Heuristics not available")
     
     try:
+        if len(q) > 1000:
+            raise HTTPException(status_code=400, detail="Query too long. Maximum 1000 characters.")
+        
         result = heuristics.calculate_bias_score(q)
         indicators = heuristics.get_bias_indicators(q)
         result['indicators'] = indicators
         return result
     except Exception as e:
+        logger.error(f"Heuristic analysis failed: {e}")
         raise HTTPException(status_code=500, detail=f"Heuristic analysis failed: {str(e)}")
-
-
-@app.get("/shots")
-async def get_shots():
-    """Get available few-shot examples."""
-    if not icl_explainer:
-        raise HTTPException(status_code=503, detail="ICL explainer not available")
-    
-    try:
-        shots = icl_explainer.get_available_shots()
-        return {"shots": shots, "count": len(shots)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get shots: {str(e)}")
 
 
 def main():
     """Run the server."""
     import uvicorn
     
-    print("Starting BiasLens API server...")
-    print("API will be available at: http://localhost:8000")
-    print("API documentation at: http://localhost:8000/docs")
+    logger.info("Starting BiasLens API server...")
+    logger.info("API will be available at: http://localhost:8000")
+    logger.info("Frontend will be available at: http://localhost:8000")
+    logger.info("API documentation at: http://localhost:8000/docs")
     
     uvicorn.run(
-        "server:app",
+        "server_production:app",
         host="0.0.0.0",
         port=8000,
         reload=False,
-        log_level="info"
+        log_level="info",
+        access_log=True
     )
 
 

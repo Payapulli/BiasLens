@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BiasLens - Political Bias Analysis</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .input-section {
+            margin-bottom: 40px;
+        }
+
+        .input-label {
+            display: block;
+            font-size: 1.2em;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        .text-input {
+            width: 100%;
+            min-height: 120px;
+            padding: 20px;
+            border: 2px solid #e1e8ed;
+            border-radius: 12px;
+            font-size: 16px;
+            font-family: inherit;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+
+        .text-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .analyze-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .analyze-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .analyze-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+        }
+
+        .bias-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border-left: 5px solid #ddd;
+        }
+
+        .bias-card.leans-left {
+            border-left-color: #2196F3;
+            background: linear-gradient(135deg, #e3f2fd 0%, #f8f9fa 100%);
+        }
+
+        .bias-card.leans-right {
+            border-left-color: #f44336;
+            background: linear-gradient(135deg, #ffebee 0%, #f8f9fa 100%);
+        }
+
+        .bias-card.center {
+            border-left-color: #4CAF50;
+            background: linear-gradient(135deg, #e8f5e8 0%, #f8f9fa 100%);
+        }
+
+        .bias-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .bias-icon {
+            font-size: 2em;
+            margin-right: 15px;
+        }
+
+        .bias-label {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #2c3e50;
+        }
+
+        .confidence-bar {
+            background: #e1e8ed;
+            border-radius: 10px;
+            height: 20px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            border-radius: 10px;
+            transition: width 0.5s ease;
+        }
+
+        .confidence-text {
+            text-align: center;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-top: 5px;
+        }
+
+        .evidence-section {
+            margin: 20px 0;
+        }
+
+        .evidence-title {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .evidence-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .evidence-tag {
+            background: #667eea;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+        }
+
+        .articles-section {
+            margin-top: 30px;
+        }
+
+        .articles-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+
+        .article-card {
+            background: white;
+            border: 1px solid #e1e8ed;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: box-shadow 0.2s ease;
+        }
+
+        .article-card:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .article-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .article-title {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 1.1em;
+        }
+
+        .article-score {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        .article-source {
+            color: #7f8c8d;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }
+
+        .article-text {
+            color: #555;
+            line-height: 1.5;
+        }
+
+        .heuristics-section {
+            margin-top: 30px;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+        }
+
+        .heuristics-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        .heuristic-item {
+            margin-bottom: 10px;
+            padding: 8px 0;
+        }
+
+        .heuristic-label {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .heuristic-value {
+            color: #555;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #f44336;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 15px;
+            }
+            
+            .main-content {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1> BiasLens</h1>
+            <p>Political Bias Analysis using RAG and In-Context Learning</p>
+        </div>
+
+        <div class="main-content">
+            <div class="input-section">
+                <label class="input-label" for="textInput">
+                    Enter text to analyze for political bias:
+                </label>
+                <textarea 
+                    id="textInput" 
+                    class="text-input" 
+                    placeholder="Example: The economy is booming under this administration with record job growth and rising wages across all sectors..."
+                ></textarea>
+                <button id="analyzeBtn" class="analyze-btn" onclick="analyzeText()">
+                    Analyze Bias
+                </button>
+            </div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Analyzing text for political bias...</p>
+            </div>
+
+            <div class="results" id="results">
+                <!-- Results will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function analyzeText() {
+            const text = document.getElementById('textInput').value.trim();
+            if (!text) {
+                alert('Please enter some text to analyze.');
+                return;
+            }
+
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+
+            // Show loading state
+            analyzeBtn.disabled = true;
+            loading.style.display = 'block';
+            results.style.display = 'none';
+
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ q: text })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                displayResults(data);
+
+            } catch (error) {
+                console.error('Error:', error);
+                displayError('Failed to analyze text. Please make sure the API server is running.');
+            } finally {
+                analyzeBtn.disabled = false;
+                loading.style.display = 'none';
+            }
+        }
+
+        function displayResults(data) {
+            const results = document.getElementById('results');
+            
+            // Check if we have valid analysis data
+            if (!data.answer || !data.score) {
+                displayError('Invalid response from server.');
+                return;
+            }
+
+            const answer = data.answer;
+            const score = data.score;
+            const retrieved = data.retrieved || [];
+
+            let html = `
+                <div class="bias-card ${answer.tentative_label || 'center'}">
+                    <div class="bias-header">
+                        <div class="bias-icon">${getBiasIcon(answer.tentative_label)}</div>
+                        <div>
+                            <div class="bias-label">${formatBiasLabel(answer.tentative_label)}</div>
+                            <div class="confidence-bar">
+                                <div class="confidence-fill" style="width: ${(answer.confidence * 100) || 0}%"></div>
+                            </div>
+                            <div class="confidence-text">Confidence: ${Math.round((answer.confidence || 0) * 100)}%</div>
+                        </div>
+                    </div>
+            `;
+
+            // Evidence spans
+            if (answer.evidence_spans && answer.evidence_spans.length > 0) {
+                html += `
+                    <div class="evidence-section">
+                        <div class="evidence-title"> Evidence Found:</div>
+                        <div class="evidence-tags">
+                            ${answer.evidence_spans.map(span => `<span class="evidence-tag">"${span}"</span>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Indicators
+            if (answer.indicators && answer.indicators.length > 0) {
+                html += `
+                    <div class="evidence-section">
+                        <div class="evidence-title"> Bias Indicators:</div>
+                        <div class="evidence-tags">
+                            ${answer.indicators.map(indicator => `<span class="evidence-tag">${indicator}</span>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Rationale
+            if (answer.rationale) {
+                html += `
+                    <div class="evidence-section">
+                        <div class="evidence-title"> Analysis Rationale:</div>
+                        <p style="color: #555; line-height: 1.5;">${answer.rationale}</p>
+                    </div>
+                `;
+            }
+
+            html += '</div>';
+
+            // Retrieved articles
+            if (retrieved.length > 0) {
+                html += `
+                    <div class="articles-section">
+                        <div class="articles-title"> Relevant Articles Found:</div>
+                        ${retrieved.map(article => `
+                            <div class="article-card">
+                                <div class="article-header">
+                                    <div class="article-title">${article.title}</div>
+                                    <div class="article-score">${article.score.toFixed(3)}</div>
+                                </div>
+                                <div class="article-source">Source: ${article.source} | Bias: ${article.bias_label}</div>
+                                <div class="article-text">${article.text}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            // Heuristic analysis
+            if (score) {
+                html += `
+                    <div class="heuristics-section">
+                        <div class="heuristics-title"> Heuristic Analysis:</div>
+                        <div class="heuristic-item">
+                            <span class="heuristic-label">Heuristic Score:</span>
+                            <span class="heuristic-value">${(score.heuristic_score || 0).toFixed(3)} (${score.heuristic_label || 'unknown'})</span>
+                        </div>
+                        <div class="heuristic-item">
+                            <span class="heuristic-label">Sentiment:</span>
+                            <span class="heuristic-value">${score.sentiment || 'neutral'}</span>
+                        </div>
+                        ${score.keywords ? `
+                            <div class="heuristic-item">
+                                <span class="heuristic-label">Keywords Found:</span>
+                                <div style="margin-top: 5px;">
+                                    ${score.keywords.left && score.keywords.left.length > 0 ? `
+                                        <div><strong>Left:</strong> ${score.keywords.left.join(', ')}</div>
+                                    ` : ''}
+                                    ${score.keywords.right && score.keywords.right.length > 0 ? `
+                                        <div><strong>Right:</strong> ${score.keywords.right.join(', ')}</div>
+                                    ` : ''}
+                                    ${score.keywords.neutral && score.keywords.neutral.length > 0 ? `
+                                        <div><strong>Neutral:</strong> ${score.keywords.neutral.join(', ')}</div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            results.innerHTML = html;
+            results.style.display = 'block';
+        }
+
+        function displayError(message) {
+            const results = document.getElementById('results');
+            results.innerHTML = `<div class="error">${message}</div>`;
+            results.style.display = 'block';
+        }
+
+        function getBiasIcon(bias) {
+            switch(bias) {
+                case 'leans_left': return '';
+                case 'leans_right': return '';
+                case 'center': return '';
+                default: return '';
+            }
+        }
+
+        function formatBiasLabel(bias) {
+            switch(bias) {
+                case 'leans_left': return 'Leans Left';
+                case 'leans_right': return 'Leans Right';
+                case 'center': return 'Center';
+                default: return 'Unknown';
+            }
+        }
+
+        // Allow Enter key to trigger analysis
+        document.getElementById('textInput').addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                analyzeText();
+            }
+        });
+    </script>
+</body>
+</html>
+
